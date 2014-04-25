@@ -440,6 +440,13 @@ example, imagine that `U` is an object type `Trait`, then switching
 pointer data is not a reasonable operation and may just cause garbage
 to occur.
 
+## Semantics on out of memory
+
+Should the allocators return NULL? Fail? My inclination is to add
+another version of malloc that returns an `Option`, since most
+consumer types will not be prepared to deal with OOM and hence it will
+typically be overlooked and mishandled.
+
 # Footnotes
 
 **Note 1.** <a name=1> The current plan for DST is that values of
