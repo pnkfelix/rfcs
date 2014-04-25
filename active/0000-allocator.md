@@ -331,7 +331,8 @@ The basic interface for simple allocators is as follows:
 
     trait SimpleAlloc {
         fn alloc_mem(&self, size: uint, align: uint) -> *mut u8;
-        fn realloc_mem(&self, ptr: *mut u8, size: uint, new_size: uint) -> *mut u8;
+        fn realloc_mem(&self, ptr: *mut u8, size: uint,
+                       new_align: uint, new_size: uint) -> *mut u8;
         fn free_mem(&self, ptr: *mut u8, size: uint);
     }
     
