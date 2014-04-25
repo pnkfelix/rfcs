@@ -333,7 +333,7 @@ The basic interface for simple allocators is as follows:
         fn alloc_mem(&self, size: uint, align: uint) -> *mut u8;
         fn realloc_mem(&self, ptr: *mut u8, size: uint,
                        new_align: uint, new_size: uint) -> *mut u8;
-        fn free_mem(&self, ptr: *mut u8, size: uint);
+        fn free_mem(&self, ptr: *mut u8, size: uint, align: uint);
     }
     
 Furthermore, there is an impl that bridges between the standard
@@ -352,7 +352,7 @@ cannot reach managed data:
         fn free(&self, ptr: *mut U) {
             let size = sizeof_value(&*ptr);
             let align = alignof_value(&*ptr);
-            self.free_mem(ptr, size);
+            self.free_mem(ptr, size, align);
         }
     }
     
