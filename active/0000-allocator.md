@@ -283,9 +283,9 @@ methods.
 There's not much to say here except that the default allocator will
 implement both `Alloc` and `AllocVec` for all types:
 
-   struct DefaultAllocator;
-   impl<Sized? U> Alloc<U> for DefaultAllocator { ... }
-   impl<T> AllocVec<T> for DefaultAllocator { ... }
+    struct DefaultAllocator;
+    impl<Sized? U> Alloc<U> for DefaultAllocator { ... }
+    impl<T> AllocVec<T> for DefaultAllocator { ... }
 
 Note that the default allocator will be integrated with the GC
 in such a way that memory allocated.
