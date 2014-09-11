@@ -53,10 +53,10 @@ using the following lattice structure:
 ```
                  Conflicting
                   /      \
-                 /       \
+                 /        \
            Borrowing    Moving
                 \        /
-                \       /
+                 \      /
                  Copying
                     |
                 NonBinding
