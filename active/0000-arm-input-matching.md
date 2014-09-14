@@ -102,8 +102,11 @@ The compiler rejects any `match` expression that is categorized as
 
 # Drawbacks
 
-Some code that is legal today might stop working.  pnkfelix encountered
-very few such cases when bootstrapping his work on [RFC PR 210]; see [Impact on real code].
+Some code that is legal today will stop working.
+The notes from pnkfelix on [RFC PR 210] were based on a control-flow
+sensitive variant of tahis change, which underestimates the effects
+of the control-flow insensitive variant proposed here.
+see [Impact on real code].
 
 
 # Alternatives
@@ -160,8 +163,162 @@ adopting [RFC PR 210: Static drop semantics]
 ## Impact on real code
 [Impact on real code]: #impact-on-real-code
 
-pnkfelix put in an analysis analogous to the one in the [Detailed
-design].  But it is possible there is more code in the wild that would
-be affected by this change.  
+After hacking a control-flow insensitive version of the "match-arm
+rule" into rustc, pnkfelix found the following cases flagged by the
+`rustc` bootstrapping itself:
+
+```
+rustc: x86_64-apple-darwin/stage1/lib/rustlib/x86_64-apple-darwin/lib/libstd
+src/libstd/io/fs.rs:482:19: 486:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/fs.rs:482         let amt = match reader.read(buf) {
+src/libstd/io/fs.rs:483             Ok(n) => n,
+src/libstd/io/fs.rs:484             Err(ref e) if e.kind == io::EndOfFile => { break }
+src/libstd/io/fs.rs:485             Err(e) => return update_err(Err(e), from, to)
+src/libstd/io/fs.rs:486         };
+src/libstd/io/fs.rs:778:17: 782:18 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/fs.rs:778                 match update_err(unlink(&child), path) {
+src/libstd/io/fs.rs:779                     Ok(()) => (),
+src/libstd/io/fs.rs:780                     Err(ref e) if e.kind == io::FileNotFound => (),
+src/libstd/io/fs.rs:781                     Err(e) => return Err(e)
+src/libstd/io/fs.rs:782                 }
+src/libstd/io/fs.rs:789:13: 793:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/fs.rs:789             match result {
+src/libstd/io/fs.rs:790                 Ok(()) => (),
+src/libstd/io/fs.rs:791                 Err(ref e) if e.kind == io::FileNotFound => (),
+src/libstd/io/fs.rs:792                 Err(e) => return Err(e)
+src/libstd/io/fs.rs:793             }
+src/libstd/io/util.rs:177:21: 181:22 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/util.rs:177                     match r.read(buf) {
+src/libstd/io/util.rs:178                         Ok(len) => return Ok(len),
+src/libstd/io/util.rs:179                         Err(ref e) if e.kind == io::EndOfFile => None,
+src/libstd/io/util.rs:180                         Err(e) => Some(e),
+src/libstd/io/util.rs:181                     }
+src/libstd/io/util.rs:228:19: 232:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/util.rs:228         let len = match r.read(buf) {
+src/libstd/io/util.rs:229             Ok(len) => len,
+src/libstd/io/util.rs:230             Err(ref e) if e.kind == io::EndOfFile => return Ok(()),
+src/libstd/io/util.rs:231             Err(e) => return Err(e),
+src/libstd/io/util.rs:232         };
+src/libstd/io/mod.rs:692:13: 696:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/mod.rs:692             match self.push_at_least(1, DEFAULT_BUF_SIZE, &mut buf) {
+src/libstd/io/mod.rs:693                 Ok(_) => {}
+src/libstd/io/mod.rs:694                 Err(ref e) if e.kind == EndOfFile => break,
+src/libstd/io/mod.rs:695                 Err(e) => return Err(e)
+src/libstd/io/mod.rs:696             }
+src/libstd/io/mod.rs:1485:33: 1492:18 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libstd/io/mod.rs:1485                 let available = match self.fill_buf() {
+src/libstd/io/mod.rs:1486                     Ok(n) => n,
+src/libstd/io/mod.rs:1487                     Err(ref e) if res.len() > 0 && e.kind == EndOfFile => {
+src/libstd/io/mod.rs:1488                         used = 0;
+src/libstd/io/mod.rs:1489                         break
+src/libstd/io/mod.rs:1490                     }
+                                                             ...
+```
+
+```
+rustc: x86_64-apple-darwin/stage1/lib/rustlib/x86_64-apple-darwin/lib/libsyntax
+src/libsyntax/ext/env.rs:64:17: 71:6 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libsyntax/ext/env.rs:64     let exprs = match get_exprs_from_tts(cx, sp, tts) {
+src/libsyntax/ext/env.rs:65         Some(ref exprs) if exprs.len() == 0 => {
+src/libsyntax/ext/env.rs:66             cx.span_err(sp, "env! takes 1 or 2 arguments");
+src/libsyntax/ext/env.rs:67             return DummyResult::expr(sp);
+src/libsyntax/ext/env.rs:68         }
+src/libsyntax/ext/env.rs:69         None => return DummyResult::expr(sp),
+                            ...
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:785:5: 786:2 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:784:5: 785:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:783:5: 784:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:782:5: 783:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:780:5: 782:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:779:5: 780:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:777:5: 779:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:776:5: 777:14 note: expansion site
+src/libsyntax/ext/tt/macro_rules.rs:169:13: 204:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/libsyntax/ext/tt/macro_rules.rs:169             match parse(cx.parse_sess(), cx.cfg(), arg_rdr, mtcs.as_slice()) {
+src/libsyntax/ext/tt/macro_rules.rs:170               Success(named_matches) => {
+src/libsyntax/ext/tt/macro_rules.rs:171                 let rhs = match *rhses[i] {
+src/libsyntax/ext/tt/macro_rules.rs:172                     // okay, what's your transcriber?
+src/libsyntax/ext/tt/macro_rules.rs:173                     MatchedNonterminal(NtTT(tt)) => {
+src/libsyntax/ext/tt/macro_rules.rs:174                         match *tt {
+                                        ...
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:785:5: 786:2 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:784:5: 785:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:783:5: 784:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:782:5: 783:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:780:5: 782:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:779:5: 780:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:777:5: 779:14 note: expansion site
+src/libsyntax/ast_util.rs:761:1: 772:2 note: in expansion of mf_method!
+src/libsyntax/ast_util.rs:776:5: 777:14 note: expansion site
+```
+
+```
+rustc: x86_64-apple-darwin/stage1/lib/rustlib/x86_64-apple-darwin/lib/librustc
+src/librustc/middle/resolve.rs:3095:9: 3158:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/librustc/middle/resolve.rs:3095         match module_prefix_result {
+src/librustc/middle/resolve.rs:3096             Failed(None) => {
+src/librustc/middle/resolve.rs:3097                 let mpath = self.idents_to_string(module_path);
+src/librustc/middle/resolve.rs:3098                 let mpath = mpath.as_slice();
+src/librustc/middle/resolve.rs:3099                 match mpath.rfind(':') {
+src/librustc/middle/resolve.rs:3100                     Some(idx) => {
+                                    ...
+src/librustc/middle/resolve.rs:3243:13: 3271:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/librustc/middle/resolve.rs:3243             match search_module.parent_link.clone() {
+src/librustc/middle/resolve.rs:3244                 NoParentLink => {
+src/librustc/middle/resolve.rs:3245                     // No more parents. This module was unresolved.
+src/librustc/middle/resolve.rs:3246                     debug!("(resolving item in lexical scope) unresolved \
+src/librustc/middle/resolve.rs:3247                             module");
+src/librustc/middle/resolve.rs:3248                     return Failed(None);
+                                    ...
+src/librustc/middle/typeck/check/mod.rs:1748:9: 1759:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/librustc/middle/typeck/check/mod.rs:1748         match infer::mk_coercety(self.infcx(),
+src/librustc/middle/typeck/check/mod.rs:1749                                  false,
+src/librustc/middle/typeck/check/mod.rs:1750                                  infer::ExprAssignable(expr.span),
+src/librustc/middle/typeck/check/mod.rs:1751                                  sub,
+src/librustc/middle/typeck/check/mod.rs:1752                                  sup) {
+src/librustc/middle/typeck/check/mod.rs:1753             Ok(None) => Ok(()),
+                                             ...
+src/librustc/middle/typeck/infer/error_reporting.rs:175:13: 209:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/librustc/middle/typeck/infer/error_reporting.rs:175             match error.clone() {
+src/librustc/middle/typeck/infer/error_reporting.rs:176                 ConcreteFailure(origin, sub, sup) => {
+src/librustc/middle/typeck/infer/error_reporting.rs:177                     self.report_concrete_failure(origin, sub, sup);
+src/librustc/middle/typeck/infer/error_reporting.rs:178                 }
+src/librustc/middle/typeck/infer/error_reporting.rs:179 
+src/librustc/middle/typeck/infer/error_reporting.rs:180                 ParamBoundFailure(origin, param_ty, sub, sups) => {
+                                                        ...
+src/librustc/middle/typeck/infer/error_reporting.rs:487:9: 784:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/librustc/middle/typeck/infer/error_reporting.rs:487         match origin {
+src/librustc/middle/typeck/infer/error_reporting.rs:488             infer::Subtype(trace) => {
+src/librustc/middle/typeck/infer/error_reporting.rs:489                 let terr = ty::terr_regions_does_not_outlive(sup, sub);
+src/librustc/middle/typeck/infer/error_reporting.rs:490                 self.report_and_explain_type_error(trace, &terr);
+src/librustc/middle/typeck/infer/error_reporting.rs:491             }
+src/librustc/middle/typeck/infer/error_reporting.rs:492             infer::Reborrow(span) => {
+                                                        ...
+src/librustc/metadata/decoder.rs:627:5: 642:6 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
+src/librustc/metadata/decoder.rs:627     match decode_inlined_item(cdata, tcx, path, item_doc) {
+src/librustc/metadata/decoder.rs:628         Ok(ref ii) => csearch::found(*ii),
+src/librustc/metadata/decoder.rs:629         Err(path) => {
+src/librustc/metadata/decoder.rs:630             match item_parent_item(item_doc) {
+src/librustc/metadata/decoder.rs:631                 Some(did) => {
+src/librustc/metadata/decoder.rs:632                     let did = translate_def_id(cdata, did);
+                                                                        ...
+
+```
+
 
 [RFC PR 210]: https://github.com/pnkfelix/rfcs/blob/fsk-nzdrop-rfc/active/0000-remove-drop-flag-and-zeroing.md
