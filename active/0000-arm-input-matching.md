@@ -203,7 +203,7 @@ src/libstd/io/fs.rs:793             }
 
 [std::io::fs 789]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/libstd/io/fs.rs#L789-L793
 
-* [std::io::util 177]
+* [std::io::util 177] (note that even control-flow sensitivity won't save this one)
 ```
 src/libstd/io/util.rs:177:21: 181:22 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
 src/libstd/io/util.rs:177                     match r.read(buf) {
@@ -251,7 +251,7 @@ src/libstd/io/mod.rs:1490                     }
                                                              ...
 ```
 
-[std::io 1485]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/libstd/io/util.rs#L1485-L1492
+[std::io 1485]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/libstd/io/mod.rs#L1485-L1492
 
 
 * [syntax::ext::env 64]
@@ -299,7 +299,7 @@ src/librustc/middle/resolve.rs:3100                     Some(idx) => {
 [rustc::middle::resolve 3095]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/librustc/middle/resolve.rs#L3095-L3158
 
 
-* [rustc::middle::resolve 3243]
+* [rustc::middle::resolve 3243] (note that even control-flow sensitivity won't save this one)
 ```
 src/librustc/middle/resolve.rs:3243:13: 3271:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
 src/librustc/middle/resolve.rs:3243             match search_module.parent_link.clone() {
@@ -314,7 +314,7 @@ src/librustc/middle/resolve.rs:3248                     return Failed(None);
 [rustc::middle::resolve 3243]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/librustc/middle/resolve.rs#L3243-L3271
 
 
-* [rustc::middle::typeck::check 1748]
+* [rustc::middle::typeck::check 1748] (note that even control-flow sensitivity won't save this one)
 ```
 src/librustc/middle/typeck/check/mod.rs:1748:9: 1759:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
 src/librustc/middle/typeck/check/mod.rs:1748         match infer::mk_coercety(self.infcx(),
@@ -329,7 +329,7 @@ src/librustc/middle/typeck/check/mod.rs:1753             Ok(None) => Ok(()),
 [rustc::middle::typeck::check 1748]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/librustc/middle/typeck/check/mod.rs#L1748-L1759
 
 
-* [rustc::middle::typeck::infer::error_reporting 175]
+* [rustc::middle::typeck::infer::error_reporting 175] (note that even control-flow sensitivity won't save this one)
 ```
 src/librustc/middle/typeck/infer/error_reporting.rs:175:13: 209:14 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
 src/librustc/middle/typeck/infer/error_reporting.rs:175             match error.clone() {
@@ -343,7 +343,7 @@ src/librustc/middle/typeck/infer/error_reporting.rs:180                 ParamBou
 
 [rustc::middle::typeck::infer::error_reporting 175]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/librustc/middle/typeck/infer/error_reporting.rs#L175-L209
 
-* [rustc::middle::typeck::infer::error_reporting 487]
+* [rustc::middle::typeck::infer::error_reporting 487] (note that even control-flow sensitivity won't save this one)
 ```
 src/librustc/middle/typeck/infer/error_reporting.rs:487:9: 784:10 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
 src/librustc/middle/typeck/infer/error_reporting.rs:487         match origin {
@@ -357,7 +357,7 @@ src/librustc/middle/typeck/infer/error_reporting.rs:492             infer::Rebor
 
 [rustc::middle::typeck::infer::error_reporting 487]: https://github.com/rust-lang/rust/blob/29f817fa22c906b4bb764e43fb6877a6cde3c07f/src/librustc/middle/typeck/infer/error_reporting.rs#L487-784
 
-* [rustc::metadata::decoder 627]
+* [rustc::metadata::decoder 627] (note that even control-flow sensitivity won't save this one)
 ```
 src/librustc/metadata/decoder.rs:627:5: 642:6 warning: conflicting match modes, #[warn(match_arms_move_mode_conflict)] on by default
 src/librustc/metadata/decoder.rs:627     match decode_inlined_item(cdata, tcx, path, item_doc) {
