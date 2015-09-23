@@ -319,7 +319,7 @@ integration we may see in the future. It merely defines what API an
 allocator must obey to allow root scanning in the future.
 
 ### Root identification: Similar to Tracing, but not the same
-[Similar to Tracing]: #root-identification-similar-to-tracing-but-not-the-same
+[similar to tracing]: #root-identification-similar-to-tracing-but-not-the-same
 
 The allocator protocol in this RFC attempts to be orthogonal to the
 tracing procedure employed by whatever GC is linked in.
@@ -1132,7 +1132,33 @@ it either:
 
 # Drawbacks
 
-Why should we *not* do this?
+## Complexity
+
+Obviously this system is more complex than the previous two
+allocator RFCs, [RFC PR 39][] and [RFC PR 244][].
+
+ * [RFC PR 39][] made no attempt to account for garbage collection; this
+   was one reason why it was declined
+
+ * [RFC PR 244][] attempted to account for garbage collection but did
+   so in a naive manner; it assumed that memory with GC pointers could
+   be tracked (e.g. in a linked list) and directly scanned for roots,
+   without attempting to start from the program stack. That design
+   fails to handle garbage cycles that cross from the GC heap through
+   the explicit heap and back to the GC heap again (an example
+   discussed in the [similar to tracing] section).
+
+As Einstein said, "as simple as possible, but not simpler": If the
+goal is to integrate with a future GC, the prior two RFC's fell into
+the bucket of "simpler than possible"; this RFC may be more complex
+than necessary, but it is not clear where to improve it without
+introducing strong assumptions about user code and GC's.
+
+## Overhead
+
+Value-tracking adds overhead that an idealized system might be able to
+avoid. This RFC has attempted to manage that overhead via static
+type-based categorization, but this may be insufficient.
 
 # Alternatives
 
@@ -1338,7 +1364,7 @@ walks through the values to ensure that it visits each value at most
 once during a root scan.
 
  * (This would make root identification even more like tracing than
-    [it already is][Similar to Tracing])
+    [it already is][similar to tracing])
 
 But, it is not strictly necessary for the value-walking protocol to
 provide mark-bits. The GC system can itself keep its own tables of
