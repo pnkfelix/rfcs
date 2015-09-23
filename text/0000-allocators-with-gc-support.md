@@ -1433,25 +1433,8 @@ see [section "I didn't order that"]).
 The `MAYBE` next to the lines that directly connects a stack-allocated
 value to a GC-managed value is due to a number of complications.
 
-Essentially, the "MAYBE" means "we might be able to support it, but only
-if the garbage collector is itself more deeply integrated with the
-Rust runtime and allocator. This RFC does not describe all the details
-of what would be necessary for such integration
-(see the [out of scope for GC] section).
-
-
-TODO: Discuss registration of other memory (requirement 1)
-
-TODO: Discuss the conservative nature of the stack scanning (reference
-      Rust's hiding of types via `as`)
-
-TODO: Discuss conservative scanning and whether GC supports pinning
-
-TODO: Note that such references are only supported if only the runtime
-      has 100% precise stack scanning *or* one has a GC that supports
-      pinning (requirement 2).
-
-TODO: Conclude that we mark this line as MAYBE to reflect that we do
-      not expect such support in the general case, and are instead
-      opting to (attempt) to encode disallowing `HasRoots` values from
-      living on the stack.
+Essentially, the "MAYBE" means "we might be able to support it, but
+only if the garbage collector is itself more deeply integrated with
+the Rust runtime and allocator. This RFC does not describe all the
+details of what would be necessary for such integration; this is
+further discussed in the [GC details out of scope] section.
