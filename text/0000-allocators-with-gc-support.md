@@ -32,6 +32,7 @@ topics are presented together here.
 * [Alternatives][alternatives]
 * [Unresolved Questions][unresolved questions]
 * [Appendices][appendices]
+
 # Motivation
 [motivation]: #motivation
 
@@ -1176,6 +1177,7 @@ avoid. This RFC has attempted to manage that overhead via static
 type-based categorization, but this may be insufficient.
 
 # Alternatives
+[alternatives]: #alternatives
 
 What other designs have been considered? What is the impact of not doing this?
 
