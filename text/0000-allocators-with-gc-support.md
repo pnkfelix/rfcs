@@ -24,6 +24,14 @@ concerned with how to support garbage collection, and such support
 constrains the design space of the Allocator API; that is why the two
 topics are presented together here.
 
+# Table of Contents
+* [Summary][summary]
+* [Motivation][motivation]
+* [Detailed Design][detailed design]
+* [Drawbacks][drawbacks]
+* [Alternatives][alternatives]
+* [Unresolved Questions][unresolved questions]
+* [Appendices][appendices]
 # Motivation
 [motivation]: #motivation
 
@@ -124,7 +132,8 @@ they write today will continue to work as GC support is added in the
 future.
 
 # Detailed design
-  
+[detailed design]: #detailed-design
+
 We first present the high-level overview of the design's four
 components, then the foundations for why this design why chosen, and
 then dive into the details of each component in turn.
@@ -1136,6 +1145,7 @@ it either:
  3. signals allocation failure when asked allocate tracked values.
 
 # Drawbacks
+[drawbacks]: #drawbacks
 
 ## Complexity
 
@@ -1392,6 +1402,7 @@ than baking in a marking scheme that may not even be the right choice
 in the long run anyway.
 
 # Unresolved questions
+[unresolved questions]: #unresolved-questions
 
 * How will GC actually work? As noted in the [GC details out of scope][]
   section, this question is not actually meant to be fully answered
@@ -1406,6 +1417,7 @@ in the long run anyway.
   suffice?
 
 # Appendices
+[appendices]: #appendices
 
 ## Bibliography
 [Bibliography]: #bibliography
