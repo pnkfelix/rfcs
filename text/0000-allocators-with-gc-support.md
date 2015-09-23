@@ -37,7 +37,7 @@ integrates with third-party garbage collectors.
 ## Allocators
 [allocators]: #allocators
 
-As noted in [RFC PR 39], modern general purpose allocators are good,
+As noted in [RFC PR 39][], modern general purpose allocators are good,
 but due to the design tradeoffs they must make, cannot be optimal in
 all contexts.  The standard library should allow clients to plug in
 their own allocator for managing memory.
@@ -64,11 +64,11 @@ following goals:
      that collects data such as number of allocations or time required
      to service requests.
 
-[RFC 1183] provides clients with the ability to swap in their own
+[RFC 1183][] provides clients with the ability to swap in their own
 allocators *globally*; this capability may satisfy goal 1 or 3 above
-(it cannot satisfy goal 2). (The RFC itself even lists goal 3 as a
+(it cannot satisfy goal 2). [RFC 1183][] itself even lists goal 3 as a
 secondary motivation, but its primary motivation was interoperability
-when embedding Rust into other runtimes.)
+when embedding Rust into other runtimes.
 
 However, the addition of the `Allocator` traits proposed here is based
 on the hypothesis that replacing the allocator globally throughout the
@@ -91,9 +91,11 @@ SpiderMonkey) and allows a root reference to a value managed by the JS
 engine's GC to flow into the Rust code.
 
 This RFC on its own does not provide all the details required for full
-integration with third-party GC's. The goal here is not to define such
+integration with third-party GC's (such as the LLVM changes for 
+generating stack maps). The goal here is not to define such
 GC support; it is instead to define API's that will *allow* such
-support to be added in the future.
+support to be added in the future. See [GC details out of scope][] for
+more discussion.
 
 ## Scope of this RFC
 [scope of this RFC]: #scope-of-this-rfc
@@ -104,14 +106,18 @@ constraints such mechanisms impose on allocator designs.
 
 In particular, the definition of a "nice" `Gc<T>` type with
 appropriate ergonomics for use in implementing a Rust crate, and any
-traits for user-defined tracing of a `Gc<T>`, is *out of scope* for
-this RFC.
+traits for user-defined tracing, is *out of scope* for this RFC.
 
 In addition, as noted above, some details of how a third-party GC
 library would integrate with Rust have been left unspecified here; see
-further discussion in the [GC details out of scope] section.
+further discussion in the [GC details out of scope][] section.
 
-The actual goal is that users can start writing their own containers
+Root identification is the GC-related goal here, not the remainder of
+garbage collection; that is why the examples use a hypothetical
+`HasRoots` type rather than the `Gc<T>` that one might otherwise
+expect there.
+
+The overall goal is that users can start writing their own containers
 parameterized over an appropriate `Allocator` trait, or their own
 implementation of one of the two `Allocator` traits, and that the code
 they write today will continue to work as GC support is added in the
@@ -126,17 +132,19 @@ into each component in turn.
 
 * Value Tracking: Add a marker trait, `Tracked`, that indicates that
   such values must be identifiable when embedded into owned objects
-  transitively reachable from the stack.
+  transitively reachable from the stack. As already mentioned, the
+  tracking performed via this trait is to identify GC roots, not
+  arbitrary GC managed data.
 
 * Classification: Add traits and functions to allow static and dynamic
   classification of types and values into "maybe-tracked" and
   "definitely-untracked".
 
 * High-level Allocator traits: Add traits that client code implements to
-  provide their own allocation procedures and are bounds used by
+  provide their own allocation procedures, and are used as bounds in
   allocator-parametric containers. This RFC proposes adding two such
   allocator traits: one trait that *all* allocators implement, and a
-  second trait used to mark allocators that provide support for value
+  second trait used to mark allocators that *ensure* support for value
   tracking.
 
 * Low-level `#[allocator]` API: Add low-level allocator methods to
@@ -148,7 +156,12 @@ Those above components cover the four main additions
 described by this RFC.
 
 Before diving into the details of what each component provides, we now
-discuss why GC integration requires such machinery.
+discuss why GC integration requires such machinery. You may wish
+to skip ahead to the [actual changes proposed by the RFC][] section
+if you are already familiar with the issues of integrating a GC
+into Rust, since the foundations section is lengthy.
+
+## Foundations
 
 ### Capabilities Needed for GC Integration
 [Capabilities]: #capabilities-needed-for-gc-integration
@@ -191,7 +204,7 @@ any type `U`.
 `*const U`; this RFC regards such a cast, especially if used as the
 *sole* owner for an object, as likely to foil GC integration, unless
 it uses a conservative scheme for root discovery; see further
-discussion in the [how will value-tracking be used] section.)
+discussion in the [how will value-tracking be used][] section.)
 
 This is all possible without the use of `unsafe` -- an `unsafe` block
 is only required for a dereference, not the casts back-and-forth.
@@ -225,7 +238,7 @@ This RFC proposes supporting these three queries by adding support for
 [how will value-tracking be used]: #how-will-value-tracking-be-used
 
 "How will value-tracking be used?" is a question that is up to the GC
-implementation.  (See also the [GC details out of scope] section.) It is
+implementation.  (See also the [GC details out of scope][] section.) It is
 not directly related to this RFC, except that it gives some motivation
 for *why* the functionality is being provided at all.
 
@@ -351,18 +364,30 @@ on the stack are pointing to explicitly managed memory.
    cycle with otherwise unreachable GC-managed objects.  The
    stack-scanning technique is our way of filtering *out* those false
    roots.)
- 
+
+## Actual changes proposed by the RFC
+[actual changes proposed by the RFC]: #actual-changes-proposed-by-the-rfc
 
 ### Value Tracking
+[value tracking]: #value-tracking
 
 Add marker trait, `Tracked`, that a struct/enum can implement to
 opt-in to being "tracked", meaning that values of such a type are
 identified when embedded into owned objects reachable from the stack
 (potentially indirectly reachable).
 
-Add an intrinsic, `tracked_addresses`, that for *any* `T: Sized`, maps
-a value of type `*const T` to the collection of (potentially) tracked
-fields embedded within the referenced `T`.
+A tracked value is either: a value of a type that implements
+`Tracked`, or a value that "owns" a tracked value.
+By "owns", we mean that it either has a field of some type that
+implements `Tracked`, or it references a tracked value via
+a `*const`/`*mut` pointer.
+
+#### Hypothetical future use of `Tracked`
+
+The intention is that, when we add more GC support, we can, for
+example, add an intrinsic, `tracked_addresses`, that for *any*
+`T:Sized`, maps a value of type `*const T` to the collection of
+(potentially) tracked fields embedded within the referenced `T`.
 
  *  The actual signature of `tracked_addresses` is:
 
@@ -375,9 +400,8 @@ fields embedded within the referenced `T`.
     starting with `cursor == 0` and then feeding in the returned cursor
 
  * This intrinsic takes a dynamic value as input rather than a static
-   type in order to handle things like enums where the number and
-   location of the tracked fields depends on runtime properties of the
-   vaue.
+   type in order to handle enums, where the number and location of the
+   tracked fields depends on runtime properties of the vaue.
 
 ### Classification
 [classification]: #classification
@@ -398,16 +422,13 @@ Add an opt-in built-in trait (OIBIT), `trait Untracked { }`.
    
  * If necessary, make `Untracked` a lang-item to accomplish the latter
    point. We will probably need to make `Untracked` a lang-item for
-   other reasons; see [tracking and trait objects].
+   other reasons; see [tracking and trait objects][] section.
 
 Add an intrinsic, `is_tracked::<T>() -> bool`, that returns false only
 if all values of type `T` can never have tracked values embedded
 within themselves or any values they own.
 
-In addition, add intrinsics to allow code to determine dynamically if
-a given type does not require tracking.
-
-### Catching attempts to subvert tracking
+#### Linting for inadvertant misclassification
 
 Add a lint that triggers on any cast or coercion that converts a
 pointer to a `Tracked` type to a pointer to a type that is not
@@ -420,8 +441,8 @@ tracked.
 
  * Originally I wanted to put something stronger than a lint here,
    such as making such casts `unsafe`, but that would break
-   parametricity properties of the language; e.g. you cannot put
-   in a rule like that without getting false positives in cases
+   parametricity properties of the language; e.g. you cannot put in a
+   rule like that without getting arguaby false positives in cases
    like:
 
    ```rust
@@ -624,7 +645,7 @@ pub type BDFunc =
                   addr: *const u8,
                   value_data_out: *mut ValueData) -> bool;
 
-/// Most basic metadata about a tracked value.
+/// Basic metadata about a tracked value.
 /// It has a starting address and size.
 /// It has a usable `TypeId` if and only if `type_id_valid` is true.
 #[repr(C)]
@@ -846,7 +867,7 @@ impl Kind {
 
 Next we have the allocator trait itself.
 
-Much of this is inspired by the previous two allocator RFCs, [RFC PR 39] and [RFC PR 244].
+Much of this is inspired by the previous two allocator RFCs, [RFC PR 39][] and [RFC PR 244][].
 
 ```rust
 #[derive(Copy, Clone, Debug)]
@@ -1000,7 +1021,7 @@ pub trait Allocator {
 }
 ```
 
-#### Stabilization Path
+## Stabilization Path
 
 We do not want to prematurely stabilize API's related to garbage
 collection. Therefore, this RFC suggests that we do not stabilize the
@@ -1013,7 +1034,7 @@ RFC suggests a stabilization path where we plan to mark the
 `Allocator` trait as stable, as well as the
 [`Untracked` marker trait][classification].
 
-### Tracking and Trait Objects
+## Tracking and Trait Objects
 [tracking and trait objects]: #tracking-and-trait-objects
 
 This RFC is designed to statically categorize all types according to
@@ -1053,7 +1074,7 @@ available as a built-in object bound. One can write
 `Box<Trait+Untracked>` for the type of such an object.
 
 ## "Waiter, I Didn't Order That"
-[section "I didn't order that"]: #waiter-i-didnt-order-that
+[didnt order that]: #waiter-i-didnt-order-that
 
 One of the main goals of this design was to ensure that developers and
 programs that do not use garbage collection should not pay for it.
@@ -1082,7 +1103,7 @@ any awareness of the potential for GC.
 
 The main potential exception to this principle are boxed trait
 objects. One can write `Box<Trait+Untracked>` to work around this, as
-noted in [tracking and trait objects], but this is admittedly a bit of
+noted in the [tracking and trait objects][] section, but this is admittedly a bit of
 a wart in the design. (One that has been known for a long time.)
 
 ### Program Complexity
@@ -1144,7 +1165,7 @@ There are two reasons to consider doing this:
    (since the corresponding code would not even be linked in)!
 
    Unfortunately, since we cannot 100% categorize all values (see
-   [tracking and trait objects]), it seems unlikely that we could
+   [tracking and trait objects][]), it seems unlikely that we could
    avoid putting `#[tracked_allocator]` into the standard library.
 
 2. If there were a separate `#[tracked_allocator]` that were
@@ -1160,7 +1181,7 @@ parts of the RFC.
 
 ## Add a `is_tracked_val` intrinsic
 
-The [classification] section proposes two main ways to classify
+The [classification][] section proposes two main ways to classify
 whether a given input cannot possibly carry a tracked value: an
 `Untracked` OIBIT, and an `is_tracked::<T>()` intrinsic.  The latter
 works soley on types.
@@ -1341,14 +1362,14 @@ in the long run anyway.
 
 # Unresolved questions
 
-* How will GC actually work? As noted in the [GC details out of scope]
+* How will GC actually work? As noted in the [GC details out of scope][]
   section, this question is not actually meant to be fully answered
   here. Still, I welcome people to point out flaws in the system
   described above, especially with respect to the hypothesized GC
   integrations.
 
 * The `Kind` API added here is something new that was not part of
-  [RFC PR 39] and [RFC PR 244]. Personal experience provides some
+  [RFC PR 39][] and [RFC PR 244][]. Personal experience provides some
   evidence that it can simplify allocation code (it captures
   common patterns for size and alignment calculations), but does it
   suffice?
@@ -1407,7 +1428,7 @@ heap is driven by separate functions in the `#[allocator]` crate API.
 Thus, clients using the `#[allocator]` crate must properly dispatch to
 the appropriate method based on what types they are handling (and also
 potentially based on whether GC support has been globally disabled;
-see [section "I didn't order that"]).
+see [section "I didn't order that"][didnt order that]).
 
 ```
    Untracked            Stack(s)            Tracked            GC-Managed       Supported?
@@ -1437,4 +1458,4 @@ Essentially, the "MAYBE" means "we might be able to support it, but
 only if the garbage collector is itself more deeply integrated with
 the Rust runtime and allocator. This RFC does not describe all the
 details of what would be necessary for such integration; this is
-further discussed in the [GC details out of scope] section.
+further discussed in the [GC details out of scope][] section.
