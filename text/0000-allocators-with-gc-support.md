@@ -125,32 +125,36 @@ future.
 
 # Detailed design
   
-We first present the high-level overview of the design, and then dive
-into each component in turn.
+We first present the high-level overview of the design's four
+components, then the foundations for why this design why chosen, and
+then dive into the details of each component in turn.
 
 ## Overview
 
-* Value Tracking: Add a marker trait, `Tracked`, that indicates that
-  such values must be identifiable when embedded into owned objects
-  transitively reachable from the stack. As already mentioned, the
-  tracking performed via this trait is to identify GC roots, not
-  arbitrary GC managed data.
+(Each component links to its details section for more info.)
 
-* Classification: Add traits and functions to allow static and dynamic
-  classification of types and values into "maybe-tracked" and
-  "definitely-untracked".
+* [Value Tracking][value tracking]: Add a marker trait, `Tracked`,
+  that indicates that such values must be identifiable when embedded
+  into owned objects transitively reachable from the stack. As already
+  mentioned, the tracking performed via this trait is to identify GC
+  roots, not arbitrary GC managed data.
 
-* High-level Allocator traits: Add traits that client code implements to
-  provide their own allocation procedures, and are used as bounds in
-  allocator-parametric containers. This RFC proposes adding two such
-  allocator traits: one trait that *all* allocators implement, and a
-  second trait used to mark allocators that *ensure* support for value
-  tracking.
+* [Classification][classification]: Add traits and functions to allow
+  static and dynamic classification of types and values into
+  "maybe-tracked" and "definitely-untracked".
 
-* Low-level `#[allocator]` API: Add low-level allocator methods to
-  support mapping addresses to a client-supplied function for inspecting
-  tracked blocks of memory. These functions are meant solely for the
-  implementation of value-tracking allocators
+* [High-level Allocator traits][high-level allocator traits]: Add
+  traits that client code implements to provide their own allocation
+  procedures, and are used as bounds in allocator-parametric
+  containers. This RFC proposes adding two such allocator traits: one
+  trait that *all* allocators implement, and a second trait used to
+  mark allocators that *ensure* support for value tracking.
+
+* [Low-level `#[allocator]` API][low-level allocator api]: Add
+  low-level allocator methods to support mapping addresses to a
+  client-supplied function for inspecting tracked blocks of
+  memory. These functions are meant solely for the implementation of
+  value-tracking allocators
 
 Those above components cover the four main additions
 described by this RFC.
@@ -686,6 +690,7 @@ pub struct Cursor {
 ```
 
 ### High-level `Allocator` traits
+[high-level allocator traits]: #high-level-allocator-traits
 
 This RFC proposes essentially one high-level allocator trait, which
 provides maximal flexibility to its *implementors*, and then a second
