@@ -1,4 +1,4 @@
-- Feature Name: allocators
+- Feature Names: tracked_values, allocators
 - Start Date: 2015-09-21
 - RFC PR: (leave this empty)
 - Rust Issue: (leave this empty)
@@ -118,7 +118,7 @@ they write today will continue to work as GC support is added in the
 future.
 
 # Detailed design
-
+  
 We first present the high-level overview of the design, and then dive
 into each component in turn.
 
