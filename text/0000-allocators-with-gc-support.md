@@ -1486,6 +1486,10 @@ see [section "I didn't order that"][didnt order that]).
 
                                               Boxed<T>  <---- ManagedValue         YES
 
+                                              HasRoots  <---- ManagedValue <-+ (garbage)
+                                              |                              |
+                                              +-------------> ManagedValue --+     YES!!
+
                        HasRoots   --------------------------> ManagedValue        MAYBE
 
                     Vec<_, GcAlloc> ----------------------> [ManagedVals; n]      MAYBE
@@ -1496,8 +1500,14 @@ see [section "I didn't order that"][didnt order that]).
 
 ```
 
+The `YES!!` next to the case where GC-managed value is pointing to the
+tracked `HasRoots` that then refers back to the is indicating a case
+where garbage can be collected even when the cycle goes through
+explicitly managed memory. This is the case discussed in the
+[similar to tracing] section.
+
 The `MAYBE` next to the lines that directly connects a stack-allocated
-value to a GC-managed value is due to a number of complications.
+value to a GC-managed value is due to ... complications.
 
 Essentially, the "MAYBE" means "we might be able to support it, but
 only if the garbage collector is itself more deeply integrated with
