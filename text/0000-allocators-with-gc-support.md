@@ -345,7 +345,7 @@ For example, some GC's will use a stop-and-copy procedure where each
 object is moved to a new location when it is first identified as live.
 Other GC's may only move some objects, or move no objects at all.
 
-The Root identification procedure is soley scanning the owned memory
+The Root identification procedure is solely scanning the owned memory
 to find roots. It does not move nor compact the owned memory.
 
 Also, our inspection of addresses held on the stack (to determine what
@@ -1227,7 +1227,7 @@ parts of the RFC.
 The [classification][] section proposes two main ways to classify
 whether a given input cannot possibly carry a tracked value: an
 `Untracked` OIBIT, and an `is_tracked::<T>()` intrinsic.  The latter
-works soley on types.
+works solely on types.
 
 A problem with relying on these two API's alone is that they
 need to be conservative, which menas they need to always categorize
