@@ -3,6 +3,12 @@
 - RFC PR: (leave this empty)
 - Rust Issue: (leave this empty)
 
+# Important Note
+
+There are various changes draft RFC pending for this RFC. I'm keeping
+a list of the [pending changes][], embedded in the text, right after
+the [summary][] section.
+
 # Summary
 [summary]: #summary
 
@@ -23,6 +29,43 @@ the `Allocator` traits from item 3 above. Much of this RFC is
 concerned with how to support garbage collection, and such support
 constrains the design space of the Allocator API; that is why the two
 topics are presented together here.
+
+# Pending Changes
+[pending changes]: #pending-changes
+
+This is a list of pending changes. I'm writing it up here so that people
+with a link to this draft don't overlook it.
+
+ * [ ] Add (potentially in an appendix) a high-level introduction to
+       GC and the issues with integrating third-party GC with Rust
+       code. Current text deep-dives too quickly.
+
+ * [ ] Must be able to disable tracking globally by swapping in
+       appropriate `#[allocator]`, and allow libraries to observe this
+       (so they can avoid building up unused metadata).
+
+ * [ ] The [linting against misclassification][] approach is not sound
+       on its own. Switch to an actually sound approach (such as
+       casting restrictions discussed in that section).
+
+ * [ ] Add alternative of removing the type-based
+       `Tracked`/`Untracked` distinction and "just" tracking all
+       allocations when GC is enabled. (Relies on disabling tracking
+       globally via `#[allocator]` swapping to retain any hope of
+       claiming "zero-cost".)
+
+ * [ ] Need to specify the default standard-library allocator(s),
+       e.g. at least one should implement `TrackingAllocator`.
+
+ * [ ] Need actual code examples of a tracking user-defined `Allocator`,
+       preferably one that illustrates how to set up `BDFunc`.
+
+ * [ ] Need discussion of concurrent allocator access. Namely, need to
+       point out that the metadata construction, introspective access,
+       and maintenance within the tracking `#[allocator]` extensions
+       (and `BDFunc` too) must be thread-safe. (Of course one could
+       accomplish this via a global lock; the point is just to note
+       that it is a requirement.)
 
 # Table of Contents
 * [Summary][summary]
@@ -442,7 +485,8 @@ Add an intrinsic, `is_tracked::<T>() -> bool`, that returns false only
 if all values of type `T` can never have tracked values embedded
 within themselves or any values they own.
 
-#### Linting for inadvertant misclassification
+#### Linting against misclassification
+[linting against misclassification]: #linting-against-misclassification
 
 Add a lint that triggers on any cast or coercion that converts a
 pointer to a `Tracked` type to a pointer to a type that is not
