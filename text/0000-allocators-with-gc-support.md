@@ -826,7 +826,7 @@ impl Kind {
     pub fn new<T>() -> Kind {
         let (size, align) = size_align::<T>();
         let tracked = is_tracked::<T>();
-        Kind { size: size, align: align, requires_tracking: tracked }
+        Kind { size: size, align: align, tracked: tracked }
     }
 
     /// Produces the `Kind` describing a record that could be used to
@@ -834,7 +834,7 @@ impl Kind {
     /// or other unsized type.
     pub unsafe fn for_value<T: ?Sized>(t: &T) -> Kind {
         let tracked = is_tracked_val::<T>(); // XXX relies on Alternative functionality
-        Kind::from_parts(mem::size_of_val(t), mem::align_of_val(t), tracked)
+        Kind { size: mem::size_of_val(t), align: mem::align_of_val(t), tracked: tracked }
     }
 
     /// Creates a `Kind` describing the record for `self` followed by
@@ -858,8 +858,8 @@ impl Kind {
     /// Creates a `Kind` describing the record that can hold a value
     /// of the same kind as `self`, but that also is aligned to
     /// alignment `align`.
-	///
-	/// Behavior undefined if `align` is not a power-of-two.
+    ///
+    /// Behavior undefined if `align` is not a power-of-two.
     ///
     /// If `self` already meets the prescribed alignment, then returns
     /// `self`.
@@ -879,7 +879,7 @@ impl Kind {
     /// Returns the amount of padding we must insert after `self`
     /// to ensure that the following address will satisfy `align`.
     ///
-	/// Behavior undefined if `align` is not a power-of-two.
+    /// Behavior undefined if `align` is not a power-of-two.
     ///
     /// Note that for this to make sense, `align <= self.align`
     /// otherwise, the amount of inserted padding would need to depend
@@ -906,20 +906,20 @@ impl Kind {
         let pad = realigned.pad_to(new_align);
         let offset = self.size + pad;
         let new_size = offset + next.size;
-        (Kind { size: new_size, align: new_align }, offset)
+        (Kind { size: new_size, align: new_align, tracked: self.tracked || next.tracked }, offset)
     }
 
     /// Creates a `Kind` describing the record for `n` instances of
     /// `self`, with a suitable amount of padding between each.
     pub fn array(self, n: usize) -> Kind {
         let padded_size = self.size + self.pad_to(self.align);
-        Kind { size: padded_size * n, align: self.align }
+        Kind { size: padded_size * n, ..self }
     }
 
     /// Creates a `Kind` describing the record for `n` instances of
     /// `self`, with no padding between each.
     pub fn array_packed(self, n: usize) -> Kind {
-        Kind { size: self.size * n, align: self.align }
+        Kind { size: self.size * n, ..self }
     }
 }
 ```
@@ -956,28 +956,28 @@ pub struct AllocError;
 /// `usable_size`.
 pub trait Allocator {
 
-	/// Returns a pointer suitable for holding data described by
-	/// `kind`
-	///
-	/// If `kind.requires_tracking()`, then may panic or signal an
-	/// allocation failure if this allocator does not support tracking
-	/// (if neither, then it must proceed as follows).
+    /// Returns a pointer suitable for holding data described by
+    /// `kind`
+    ///
+    /// If `kind.requires_tracking()`, then may panic or signal an
+    /// allocation failure if this allocator does not support tracking
+    /// (if neither, then it must proceed as follows).
     ///
     /// Returns a pointer suitable for holding data described by
     /// `kind`, meeting its size and alignment guarantees.
-	///
-	/// if (1.) allocation succeeds, (2.) `kind.requires_tracking()`
-	/// and (3.) a garbage collector is linked in, then the returned
-	/// storage will be initialized to zero before the address is
-	/// returned.
-	///
+    ///
+    /// if (1.) allocation succeeds, (2.) `kind.requires_tracking()`
+    /// and (3.) a garbage collector is linked in, then the returned
+    /// storage will be initialized to zero before the address is
+    /// returned.
+    ///
     /// Returns null if allocation fails.
     ///
     /// Behavior undefined if `kind.size()` is 0 or if `kind.align()`
     /// is larger than the largest platform-supported page size.
     unsafe fn alloc(&mut self, kind: Kind) -> Address;
 
-    /// Deallocate the memory referenced by `ptr`.
+    /// Deallocates the memory referenced by `ptr`.
     ///
     /// `ptr` must have previously been provided via this allocator,
     /// and `kind` must *fit* the provided block.
@@ -998,8 +998,8 @@ pub trait Allocator {
     unsafe fn usable_size(&self, kind: Kind) -> Capacity { kind.size }
 
     /// Extends or shrinks the allocation referenced by `ptr` to
-	/// `new_size` bytes of memory, retaining the alignment `align`
-	/// and value-tracking state specified by `kind`.
+    /// `new_size` bytes of memory, retaining the alignment `align`
+    /// and value-tracking state specified by `kind`.
     ///
     /// `ptr` must have previously been provided via this allocator.
     ///
@@ -1026,54 +1026,54 @@ pub trait Allocator {
         }
     }
 
-	/// Behaves like `fn alloc`, but also returns the whole size of
-	/// the returned block. For some `kind` inputs, like arrays, this
-	/// may include extra storage usable for additional data.
+    /// Behaves like `fn alloc`, but also returns the whole size of
+    /// the returned block. For some `kind` inputs, like arrays, this
+    /// may include extra storage usable for additional data.
     unsafe fn alloc_excess(&mut self, kind: Kind) -> Excess {
         Excess(self.alloc(kind), self.usable_size(kind))
     }
 
-	/// Behaves like `fn realloc`, but also returns the whole size of
-	/// the returned block. For some `kind` inputs, like arrays, this
-	/// may include extra storage usable for additional data.
+    /// Behaves like `fn realloc`, but also returns the whole size of
+    /// the returned block. For some `kind` inputs, like arrays, this
+    /// may include extra storage usable for additional data.
     unsafe fn realloc_excess(&mut self, ptr: Address, kind: Kind, new_size: Size) -> Excess {
         Excess(self.realloc(ptr, kind, new_size),
                self.usable_size(Kind { size: new_size, ..kind }))
     }
 
-	/// Allocates a block suitable for holding an instance of `T`.
-	///
-	/// Captures a common usage pattern for allocators.
+    /// Allocates a block suitable for holding an instance of `T`.
+    ///
+    /// Captures a common usage pattern for allocators.
     unsafe fn alloc_one<T>(&mut self) -> Result<Unique<T>, AllocError> {
         let p = self.alloc(Kind::new::<T>()) as *mut T;
         if !p.is_null() { Ok(Unique::new(p)) } else { Err(AllocError) }
     }
 
-	/// Deallocates a block suitable for holding an instance of `T`.
-	///
-	/// Captures a common usage pattern for allocators.
+    /// Deallocates a block suitable for holding an instance of `T`.
+    ///
+    /// Captures a common usage pattern for allocators.
     unsafe fn dealloc_one<T>(&mut self, ptr: Unique<T>) {
-        self.dealloc(ptr.get_mut() as *mut T as *mut u8, Kind::new::<T>());
+        self.dealloc(*ptr as *mut u8, Kind::new::<T>());
     }
 
-	/// Allocates a block suitable for holding `n` instances of `T`.
-	///
-	/// Captures a common usage pattern for allocators.
+    /// Allocates a block suitable for holding `n` instances of `T`.
+    ///
+    /// Captures a common usage pattern for allocators.
     unsafe fn alloc_array<T>(&mut self, n: usize) -> Result<Unique<T>, AllocError> {
         let p = self.alloc(Kind::new::<T>().array(n)) as *mut T;
         if !p.is_null() { Ok(Unique::new(p)) } else { Err(AllocError) }
     }
 
-	/// Deallocates a block suitable for holding `n` instances of `T`.
-	///
-	/// Captures a common usage pattern for allocators.
-    unsafe fn dealloc_array<T>(&mut self, ptr: Address, n: usize) {
-        self.dealloc(ptr as *mut T, Kind::new::<T>().array(n));
+    /// Deallocates a block suitable for holding `n` instances of `T`.
+    ///
+    /// Captures a common usage pattern for allocators.
+    unsafe fn dealloc_array<T>(&mut self, ptr: Unique<T>, n: usize) {
+        self.dealloc(ptr as *mut u8, Kind::new::<T>().array(n));
     }
 
-	/// Allocator-specific method for signalling an out-of-memory
-	/// condition.
-	///
+    /// Allocator-specific method for signalling an out-of-memory
+    /// condition.
+    ///
     /// Any activity done by the `oom` method must not allocate
     /// from `self` (otherwise you essentially infinite regress).
     unsafe fn oom(&mut self) -> ! { ::std::intrinsics::abort() }
