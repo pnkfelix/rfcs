@@ -383,7 +383,7 @@ The responsibilities of Cargo:
     are not mandated by this RFC, but some ideas are presented as
     [Future possibiilties][future-possibilities].
 
-## Implmentation strategy: Leverage JSON error-format
+## Implementation strategy: Leverage JSON error-format
 
 The cleanest way to implement the above division of responsbilities
 without perturbing *non-cargo* uses of `rustc` is probably to make 
